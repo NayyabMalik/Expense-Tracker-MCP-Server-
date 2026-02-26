@@ -1,0 +1,14 @@
+{
+  "categories": {
+    "Food": ["Groceries", "Restaurants", "Coffee", "Snacks"],
+    "Transport": ["Fuel", "Public Transport", "Taxi/Ride-hailing", "Car Maintenance"],
+    "Housing": ["Rent", "Utilities", "Repairs", "Internet"],
+    "Health": ["Medicine", "Doctor Visits", "Gym", "Insurance"],
+    "Entertainment": ["Movies", "Games", "Subscriptions", "Events"],
+    "Shopping": ["Clothes", "Electronics", "Home Goods", "Books"],
+    "Education": ["Tuition", "Courses", "Books", "Supplies"],
+    "Travel": ["Flights", "Hotels", "Tours", "Visa"],
+    "Savings": ["Emergency Fund", "Investments", "Retirement", "Other Savings"],
+    "Miscellaneous": ["Gifts", "Donations", "Other"]
+  }
+}
