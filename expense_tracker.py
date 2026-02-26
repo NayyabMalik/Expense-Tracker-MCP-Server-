@@ -1,8 +1,11 @@
 from fastmcp import FastMCP
 import os 
 import sqlite3
-db_path = os.path.join(os.path.dirname(__file__), 'expenses.db')## in project folder files of db store
-mcp=FastMCP(name='ExpenseTracker')
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+db_path = os.path.join(BASE_DIR, 'expenses.db')
+
+mcp = FastMCP(name='ExpenseTracker')
 
 def init_db():
     conn = sqlite3.connect(db_path)
@@ -17,6 +20,8 @@ def init_db():
             note TEXT DEFAULT ' ' 
         )
     ''')
+    conn.commit()
+    conn.close()
 
 init_db()
 
@@ -30,7 +35,9 @@ def add_expense(amount: float, category: str, subcategory: str, date: str, note:
         VALUES (?, ?, ?, ?, ?)
     ''', (amount, category, subcategory, date, note))
     conn.commit()
-    return {"status": "success", "message": "Expense added successfully.","id": cursor.lastrowid}
+    last_id = cursor.lastrowid
+    conn.close()
+    return {"status": "success", "message": "Expense added successfully.", "id": last_id}
 
 @mcp.tool
 def list_expenses(start_date: str = None, end_date: str = None, category: str = None):
@@ -39,17 +46,21 @@ def list_expenses(start_date: str = None, end_date: str = None, category: str = 
     cursor = conn.cursor()
     query = 'SELECT * FROM expenses'
     params = []
+    conditions = []
     if start_date is not None:
-        query += ' WHERE date >= ?'
+        conditions.append('date >= ?')
         params.append(start_date)
     if end_date is not None:
-        query += ' AND date <= ?' if start_date is not None else ' WHERE date <= ?'
+        conditions.append('date <= ?')
         params.append(end_date)
     if category is not None:
-        query += ' AND category = ?' if (start_date is not None or end_date is not None) else ' WHERE category = ?'
+        conditions.append('category = ?')
         params.append(category)
+    if conditions:
+        query += ' WHERE ' + ' AND '.join(conditions)
     cursor.execute(query, params)
     expenses = cursor.fetchall()
+    conn.close()
     return [{"id": row[0], "amount": row[1], "category": row[2], "subcategory": row[3], "date": row[4], "note": row[5]} for row in expenses]
 
 @mcp.tool
@@ -59,7 +70,9 @@ def delete_expense(expense_id: int):
     cursor = conn.cursor()
     cursor.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))
     conn.commit()
-    if cursor.rowcount > 0:
+    deleted = cursor.rowcount
+    conn.close()
+    if deleted > 0:
         return {"status": "success", "message": "Expense deleted successfully."}
     else:
         return {"status": "error", "message": "Expense not found."}
@@ -86,11 +99,16 @@ def update_expense(expense_id: int, amount: float = None, category: str = None, 
     if note is not None:
         fields.append('note = ?')
         params.append(note)
+    if not fields:
+        conn.close()
+        return {"status": "error", "message": "No fields to update."}
     params.append(expense_id)
     query = f'UPDATE expenses SET {", ".join(fields)} WHERE id = ?'
     cursor.execute(query, params)
     conn.commit()
-    if cursor.rowcount > 0:
+    updated = cursor.rowcount
+    conn.close()
+    if updated > 0:
         return {"status": "success", "message": "Expense updated successfully."}
     else:
         return {"status": "error", "message": "Expense not found."}
@@ -102,20 +120,26 @@ def summarize_expenses_by_category(start_date: str = None, end_date: str = None)
     cursor = conn.cursor()
     query = 'SELECT category, SUM(amount) FROM expenses'
     params = []
+    conditions = []
     if start_date is not None:
-        query += ' WHERE date >= ?'
+        conditions.append('date >= ?')
         params.append(start_date)
     if end_date is not None:
-        query += ' AND date <= ?' if start_date is not None else ' WHERE date <= ?'
+        conditions.append('date <= ?')
         params.append(end_date)
+    if conditions:
+        query += ' WHERE ' + ' AND '.join(conditions)
     query += ' GROUP BY category'
     cursor.execute(query, params)
     summary = cursor.fetchall()
+    conn.close()
     return [{"category": row[0], "total_amount": row[1]} for row in summary]
 
-@mcp.resource(name='categories.json', mime_type='application/json')
+@mcp.resource(uri='file://categories.json', name='categories.json', mime_type='application/json')
 def get_categories():
-    with open('categories.json', 'r') as f:
+    """Get expense categories."""
+    categories_path = os.path.join(BASE_DIR, 'categories.json')
+    with open(categories_path, 'r') as f:
         return f.read()
 
 if __name__ == "__main__":
